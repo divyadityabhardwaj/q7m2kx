@@ -1,0 +1,7 @@
+services:
+  windwise:
+    build: .
+    ports:
+      - "8000:8000"
+    init: true
+    restart: unless-stopped
