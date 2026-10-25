@@ -159,7 +159,7 @@ export function AccuracyView({ data }: { data: Report }) {
                       : "—"}
                   </td>
                   <td>{number(r.forecastMw)}</td>
-                  <td>{number(r.actualMw)}</td>
+                  <td>{number(r.actualMw, 1)}</td>
                   <td>
                     <span
                       className={
@@ -167,7 +167,7 @@ export function AccuracyView({ data }: { data: Report }) {
                       }
                     >
                       {r.errorMw! > 0 ? "+" : ""}
-                      {number(r.errorMw)}
+                      {number(r.errorMw, 1)}
                     </span>
                   </td>
                 </tr>

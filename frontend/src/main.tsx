@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Area,
@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
+  ChevronDown,
   Clock3,
   Gauge,
   LayoutDashboard,
@@ -43,12 +44,16 @@ import {
 } from "./shared";
 import { AccuracyView } from "./AccuracyView";
 import { MethodView } from "./MethodView";
+import { DateRangePicker } from "./DateRangePicker";
 import "./style.css";
+import "./controls.css";
 
 function App() {
   const [tab, setTab] = useState("overview");
-  const [from, setFrom] = useState("2026-01-01");
-  const [to, setTo] = useState("2026-01-31");
+  const [{ from, to }, setRange] = useState({
+    from: "2026-01-01",
+    to: "2026-01-31",
+  });
   const [cutoff, setCutoff] = useState(9);
   const [selected, setSelected] = useState("2026-01-14");
   const [data, setData] = useState<Report | null>(null);
@@ -57,6 +62,13 @@ function App() {
   const [retry, setRetry] = useState(0);
   const [showActual, setShowActual] = useState(true);
   const [help, setHelp] = useState(false);
+  const helpDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = helpDialog.current;
+    if (!dialog) return;
+    if (help && !dialog.open) dialog.showModal();
+    else if (!help && dialog.open) dialog.close();
+  }, [help]);
   const valid = from <= to;
   const query = new URLSearchParams({
     decision_from: from,
@@ -90,15 +102,22 @@ function App() {
     return () => controller.abort();
   }, [query, retry, valid]);
   useEffect(() => {
-    if (!valid) return;
-    if (selected < from) setSelected(from);
-    else if (selected > to) setSelected(to);
-  }, [from, to, selected, valid]);
+    if (!data) return;
+    if (selected < data.selection.decisionFrom)
+      setSelected(data.selection.decisionFrom);
+    else if (selected > data.selection.decisionTo)
+      setSelected(data.selection.decisionTo);
+  }, [data, selected]);
+  const shownFrom = data?.selection.decisionFrom ?? from;
+  const shownTo = data?.selection.decisionTo ?? to;
+  const shownCutoff = data?.selection.cutoffHourUtc ?? cutoff;
+  const shownDay =
+    selected < shownFrom ? shownFrom : selected > shownTo ? shownTo : selected;
   const hours = useMemo(
-    () => data?.rows.filter((r) => r.decisionDate === selected) ?? [],
-    [data, selected],
+    () => data?.rows.filter((r) => r.decisionDate === shownDay) ?? [],
+    [data, shownDay],
   );
-  const day = data?.daily.find((d) => d.decisionDate === selected);
+  const day = data?.daily.find((d) => d.decisionDate === shownDay);
   const summary = data?.summary;
   const peak = hours.reduce((a, r) => Math.max(a, r.forecastMw ?? 0), 0);
   const issues = [...new Set(hours.map((r) => r.publishTime).filter(Boolean))];
@@ -128,6 +147,7 @@ function App() {
         <nav aria-label="Main navigation">
           <button
             className={tab === "overview" ? "active" : ""}
+            aria-current={tab === "overview" ? "page" : undefined}
             onClick={() => setTab("overview")}
           >
             <LayoutDashboard size={18} />
@@ -135,6 +155,7 @@ function App() {
           </button>
           <button
             className={tab === "performance" ? "active" : ""}
+            aria-current={tab === "performance" ? "page" : undefined}
             onClick={() => setTab("performance")}
           >
             <Gauge size={18} />
@@ -142,6 +163,7 @@ function App() {
           </button>
           <button
             className={tab === "method" ? "active" : ""}
+            aria-current={tab === "method" ? "page" : undefined}
             onClick={() => setTab("method")}
           >
             <BookOpen size={18} />
@@ -186,75 +208,63 @@ function App() {
             <a
               className="button export"
               href={"/api/export?" + query}
-              aria-disabled={!valid}
+              aria-disabled={!valid || loading}
               onClick={(e) => {
-                if (!valid) e.preventDefault();
+                if (!valid || loading) e.preventDefault();
               }}
             >
               <ArrowDownToLine size={16} />
               Export data
             </a>
           </div>
-          <section className="filter-bar" aria-label="Analysis filters">
-            <div className="filter-group">
-              <CalendarDays size={17} />
-              <div>
-                <span className="filter-label">DECISION DATES</span>
-                <div className="date-inputs">
-                  <input
-                    aria-label="Decision start date"
-                    type="date"
-                    min="2026-01-01"
-                    max="2026-01-31"
-                    value={from}
-                    onChange={(e) => {
-                      if (e.target.value) setFrom(e.target.value);
-                    }}
-                  />
-                  <span>→</span>
-                  <input
-                    aria-label="Decision end date"
-                    type="date"
-                    min="2026-01-01"
-                    max="2026-01-31"
-                    value={to}
-                    onChange={(e) => {
-                      if (e.target.value) setTo(e.target.value);
-                    }}
-                  />
+          <section className="analysis-toolbar" aria-label="Analysis filters">
+            <DateRangePicker
+              from={from}
+              to={to}
+              onApply={(nextFrom, nextTo) =>
+                setRange({ from: nextFrom, to: nextTo })
+              }
+            />
+            <div className="cutoff-field">
+              <Clock3 className="control-icon" size={19} aria-hidden="true" />
+              <div className="control-body">
+                <div className="control-label-row">
+                  <label className="control-label" htmlFor="cutoff">
+                    As of · UTC
+                  </label>
+                  <Info text="Only forecasts published by this time on the decision day are included. The 09:00 default is illustrative, not an exchange deadline." />
+                </div>
+                <div className="cutoff-select-wrap">
+                  <select
+                    id="cutoff"
+                    value={cutoff}
+                    onChange={(e) => setCutoff(Number(e.target.value))}
+                  >
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <option key={h} value={h}>
+                        {String(h).padStart(2, "0")}:00
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} aria-hidden="true" />
                 </div>
               </div>
             </div>
-            <div className="filter-group cutoff">
-              <Clock3 size={17} />
-              <div>
-                <label className="filter-label" htmlFor="cutoff">
-                  AS OF · UTC
-                </label>
-                <select
-                  id="cutoff"
-                  value={cutoff}
-                  onChange={(e) => setCutoff(Number(e.target.value))}
-                >
-                  {Array.from({ length: 24 }, (_, h) => (
-                    <option key={h} value={h}>
-                      {String(h).padStart(2, "0")}:00 UTC
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <Info text="Illustrative decision time, not a claimed exchange gate closure. Only issues published at or before this time on the decision day are eligible." />
-            </div>
-            <div className="filter-note">
-              <span className="live-dot" />
-              Next-day delivery
+            <div className="delivery-context">
+              <CalendarDays size={15} aria-hidden="true" />
+              <span>
+                <small>Next-day delivery</small>
+                <strong>
+                  {shortDate(addDay(from, 1))}–{shortDate(addDay(to, 1))}
+                </strong>
+              </span>
             </div>
           </section>
           {!valid ? (
             <div role="alert" className="error-state">
               Choose an end date on or after the start date.
             </div>
-          ) : loading ? (
+          ) : loading && !data ? (
             <div className="loading-state" role="status">
               <LoaderCircle className="spin" />
               Selecting forecasts available at your cutoff…
@@ -270,11 +280,22 @@ function App() {
           ) : (
             data &&
             summary && (
-              <>
+              <div
+                className={`analysis-results${loading ? " is-updating" : ""}`}
+                aria-busy={loading}
+              >
                 <div className="period-label">
-                  <span>PERIOD SUMMARY</span>
+                  <span>
+                    PERIOD SUMMARY
+                    {loading && (
+                      <span className="updating-indicator" role="status">
+                        <LoaderCircle size={11} className="spin" />
+                        Updating
+                      </span>
+                    )}
+                  </span>
                   <small>
-                    {shortDate(from)} – {shortDate(to)} decisions ·{" "}
+                    {shortDate(shownFrom)} – {shortDate(shownTo)} decisions ·{" "}
                     {number(summary.matchedHours)} / {summary.expectedHours}{" "}
                     matched delivery hours
                   </small>
@@ -337,14 +358,14 @@ function App() {
                         <div>
                           <h2>Next-day wind</h2>
                           <p>
-                            Decision {shortDate(selected)} ·
-                            {String(cutoff).padStart(2, "0")}:00 UTC
+                            Decision {shortDate(shownDay)} ·{" "}
+                            {String(shownCutoff).padStart(2, "0")}:00 UTC
                           </p>
                         </div>
                         <div className="day-picker">
                           <button
-                            disabled={selected <= from}
-                            onClick={() => setSelected(addDay(selected, -1))}
+                            disabled={loading || shownDay <= shownFrom}
+                            onClick={() => setSelected(addDay(shownDay, -1))}
                             aria-label="Previous decision day"
                           >
                             <ChevronLeft size={17} />
@@ -353,7 +374,8 @@ function App() {
                             <CalendarDays size={15} />
                             <select
                               aria-label="Selected decision day"
-                              value={selected}
+                              value={shownDay}
+                              disabled={loading}
                               onChange={(e) => setSelected(e.target.value)}
                             >
                               {data.daily.map((d) => (
@@ -367,8 +389,8 @@ function App() {
                             </select>
                           </label>
                           <button
-                            disabled={selected >= to}
-                            onClick={() => setSelected(addDay(selected, 1))}
+                            disabled={loading || shownDay >= shownTo}
+                            onClick={() => setSelected(addDay(shownDay, 1))}
                             aria-label="Next decision day"
                           >
                             <ChevronRight size={17} />
@@ -440,7 +462,9 @@ function App() {
                               tick={{ fill: "#89918d", fontSize: 11 }}
                               width={64}
                             />
-                            <Tooltip content={<HourTooltip />} />
+                            <Tooltip
+                              content={<HourTooltip showActual={showActual} />}
+                            />
                             <Area
                               type="linear"
                               dataKey="forecastMw"
@@ -468,14 +492,14 @@ function App() {
                       <div className="chart-footer">
                         <span>
                           <CalendarDays size={14} />
-                          Delivery {fullDate(addDay(selected, 1))} · hourly
+                          Delivery {fullDate(addDay(shownDay, 1))} · hourly
                           averages
                         </span>
                         <span>
                           {day?.matchedHours}/24 matched hours{" "}
                           <span className="footer-divider">|</span>
                           {issues.length === 1
-                            ? `Issue ${timeOf(issues[0] ?? null)} UTC`
+                            ? `Issue ${shortDate(issues[0]!.slice(0, 10))} · ${timeOf(issues[0] ?? null)} UTC`
                             : `${issues.length} eligible issue times`}
                         </span>
                       </div>
@@ -509,13 +533,13 @@ function App() {
                               minTickGap={35}
                               axisLine={false}
                               tickLine={false}
-                              tick={{ fill: "#89918d", fontSize: 10 }}
+                              tick={{ fill: "#71816b", fontSize: 11 }}
                             />
                             <YAxis
                               width={55}
                               axisLine={false}
                               tickLine={false}
-                              tick={{ fill: "#89918d", fontSize: 10 }}
+                              tick={{ fill: "#71816b", fontSize: 11 }}
                             />
                             <Tooltip
                               labelFormatter={(v) =>
@@ -550,7 +574,7 @@ function App() {
                       <section className="insight-card">
                         <div className="daily-heading">
                           <h2>Delivery summary</h2>
-                          <span>{shortDate(addDay(selected, 1))}</span>
+                          <span>{shortDate(addDay(shownDay, 1))}</span>
                         </div>
                         <div className="summary-number">
                           <span>Forecast energy</span>
@@ -586,48 +610,54 @@ function App() {
                   <span>Elexon · WINDFOR + FUELHH</span>
                   <span>Hourly resolution · UTC</span>
                 </footer>
-              </>
+              </div>
             )
           )}
         </main>
       </div>
-      {help && (
-        <div className="modal-backdrop" onClick={() => setHelp(false)}>
-          <section
-            className="help-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Workspace help"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="close-modal icon-button"
-              aria-label="Close help"
-              onClick={() => setHelp(false)}
-            >
-              <X size={20} />
-            </button>
-            <Wind size={30} />
-            <h2>Using Windframe</h2>
-            <p>
-              Choose decision dates and a cutoff. The outlook shows the forecast
-              available for next-day delivery.
-            </p>
-            <p>
-              Actuals are retrospective. Review errors in Accuracy or download
-              the selected hourly data as CSV.
-            </p>
-            <button
-              className="button primary"
-              autoFocus
-              onClick={() => setHelp(false)}
-            >
-              Got it
-              <ArrowRight size={16} />
-            </button>
-          </section>
-        </div>
-      )}
+      <dialog
+        ref={helpDialog}
+        className="help-modal"
+        aria-label="Workspace help"
+        onCancel={() => setHelp(false)}
+        onClick={(event) => {
+          const bounds = event.currentTarget.getBoundingClientRect();
+          if (
+            event.target === event.currentTarget &&
+            (event.clientX < bounds.left ||
+              event.clientX > bounds.right ||
+              event.clientY < bounds.top ||
+              event.clientY > bounds.bottom)
+          )
+            setHelp(false);
+        }}
+      >
+        <button
+          className="close-modal icon-button"
+          aria-label="Close help"
+          onClick={() => setHelp(false)}
+        >
+          <X size={20} />
+        </button>
+        <Wind size={30} />
+        <h2>Using Windframe</h2>
+        <p>
+          Choose decision dates and a cutoff. The outlook shows the forecast
+          available for next-day delivery.
+        </p>
+        <p>
+          Actuals are retrospective. Review errors in Accuracy or download the
+          selected hourly data as CSV.
+        </p>
+        <button
+          className="button primary"
+          autoFocus
+          onClick={() => setHelp(false)}
+        >
+          Got it
+          <ArrowRight size={16} />
+        </button>
+      </dialog>
     </div>
   );
 }

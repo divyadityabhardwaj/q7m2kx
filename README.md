@@ -7,6 +7,13 @@ A compact day-ahead wind forecasting workspace for Great Britain. Inspect the fo
 
 ![Windframe overview](assets/overview.jpg)
 
+<details>
+<summary>Date range picker</summary>
+
+![UTC date-range calendar and aligned time control](assets/calendar.jpg)
+
+</details>
+
 ## Run
 
 Docker (Node and Python are built inside the container):
@@ -30,7 +37,7 @@ In a second terminal, run `npm run dev` and open http://localhost:5173. Vite pro
 
 ## Use
 
-- **Overview:** choose decision dates and the daily cutoff; step through the selected decision days to inspect next-day forecasts. Hover over the chart to inspect the exact publication time. Toggle the retrospective actual line.
+- **Overview:** choose a date range in the calendar (or use a January shortcut), click **Apply dates**, and set the daily cutoff; step through the selected decision days to inspect next-day forecasts. Hover over the chart to inspect the exact publication time. Toggle the retrospective actual line.
 - **Accuracy:** see forecast/actual pairs, error by delivery hour, and the largest misses.
 - **Method:** read the selection rules and source provenance.
 - **Export data:** download the selected hourly pairs, issue timestamps, cutoff, lead time, and signed errors as CSV.
@@ -47,6 +54,8 @@ For a decision date D and each target hour on D+1:
 2. Select the forecast for that exact target with the greatest `publishTime` **at or before the cutoff**. Future issues never enter the historical decision.
 3. WINDFOR targets in this extract are hourly. Average the two complete FUELHH half-hours to get the comparable hourly actual in MW. There is no interpolation, forward fill, zero fill or invented generation.
 4. Leave unmatched values blank and exclude them from paired error statistics. Report the matched-hour count. At 00:00, available issues lack the final two hours of next-day delivery: coverage is 682/744. At the default 09:00, coverage is 744/744.
+
+Retained forecast publications span **31 December 2025 02:30 UTC–31 January 2026 22:30 UTC**; forecast targets span **2 January–1 February 2026**. Actual half-hours cover **2 January 00:00 UTC–1 February 23:30 UTC**, with the final publication at **2 February 00:00 UTC**.
 
 The snapshot uses the latest returned actual publication per half-hour. These are retrospective observations, potentially subject to revision, not the information available to the buyer. The app does not make runtime requests to Elexon; the historical workspace is deterministic and works without the upstream API being available.
 
@@ -84,6 +93,7 @@ Sources: [WINDFOR stream documentation](https://bmrs.elexon.co.uk/api-documentat
 | Path | Purpose |
 | --- | --- |
 | `frontend/src/main.tsx` | Workspace state, filters and the daily outlook |
+| `frontend/src/DateRangePicker.tsx`, `controls.css` | Accessible UTC date-range calendar, shortcuts and aligned filter controls |
 | `frontend/src/AccuracyView.tsx` | Error charts and ranked hourly misses |
 | `frontend/src/MethodView.tsx` | Source and methodology view |
 | `frontend/src/shared.tsx`, `types.ts`, `style.css` | Shared formatting, display components, response types and responsive styling |
@@ -101,7 +111,7 @@ Sources: [WINDFOR stream documentation](https://bmrs.elexon.co.uk/api-documentat
 
 React and TypeScript handle interaction; Recharts renders the data. FastAPI owns all calculations so the browser, CSV and deployed API agree. Pure analysis functions are separate from HTTP handling. A bounded in-process report cache avoids repeating calculations; it is an optimization and not persistent state. There is no database, authentication, paid API or secret configuration.
 
-The UI keeps short labels and puts detailed definitions in tooltips and Method. The layout responds to mobile widths, keyboard focus is visible, and reduced-motion preferences are respected. Visual references: [Linear's UI redesign](https://linear.app/now/how-we-redesigned-the-linear-ui) and [Creava's energy analytics dashboard](https://dribbble.com/shots/26838026-Energy-Consumption-Analytics-Dashboard); the implementation is custom.
+The UI keeps short labels and puts detailed definitions in clickable explanations and Method. The calendar supports a draft range, explicit Apply/Cancel, Escape and keyboard focus return. Filter updates retain the previous, correctly labeled result while new data loads. The layout responds to mobile widths, keyboard focus is visible, and reduced-motion preferences are respected. Visual references: [Linear's UI redesign](https://linear.app/now/how-we-redesigned-the-linear-ui) and [Creava's energy analytics dashboard](https://dribbble.com/shots/26838026-Energy-Consumption-Analytics-Dashboard); the implementation is custom.
 
 ## API
 

@@ -1,4 +1,5 @@
 import { CircleHelp } from "lucide-react";
+import * as Popover from "@radix-ui/react-popover";
 import type { Row } from "./types";
 export const number = (v: number | null | undefined, digits = 0) =>
   v == null
@@ -32,12 +33,28 @@ export const colors = {
 };
 export function Info({ text }: { text: string }) {
   return (
-    <span className="info" title={text} aria-label={text} tabIndex={0}>
-      <CircleHelp size={14} />
-      <span role="tooltip">{text}</span>
-    </span>
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <button className="info" aria-label={text} title="Show explanation">
+          <CircleHelp size={14} />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          className="info-popover"
+          side="top"
+          align="end"
+          sideOffset={8}
+          collisionPadding={12}
+          aria-label="Explanation"
+        >
+          <p>{text}</p>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
+
 export function Stat({
   label,
   value,
@@ -68,8 +85,10 @@ export function Stat({
 export function HourTooltip({
   active,
   payload,
+  showActual = true,
 }: {
   active?: boolean;
+  showActual?: boolean;
   payload?: { payload: Row }[];
 }) {
   if (!active || !payload?.length) return null;
@@ -83,13 +102,17 @@ export function HourTooltip({
         <i style={{ background: colors.forecast }} />
         Forecast <b>{number(r.forecastMw)} MW</b>
       </p>
-      <p>
-        <i style={{ background: colors.actual }} />
-        Actual <b>{number(r.actualMw)} MW</b>
-      </p>
-      <p>
-        Error <b>{number(r.errorMw)} MW</b>
-      </p>
+      {showActual && (
+        <>
+          <p>
+            <i style={{ background: colors.actual }} />
+            Actual <b>{number(r.actualMw, 1)} MW</b>
+          </p>
+          <p>
+            Error <b>{number(r.errorMw, 1)} MW</b>
+          </p>
+        </>
+      )}
       <small>
         Published{" "}
         {r.publishTime?.replace("T", " ").replace("Z", " UTC") ?? "unavailable"}
