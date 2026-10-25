@@ -5,6 +5,8 @@ A compact day-ahead wind forecasting workspace for Great Britain. Inspect the fo
 **Live app:** https://q7m2kx.vercel.app  
 **Repository:** https://github.com/divyadityabhardwaj/q7m2kx
 
+![Windwise overview](assets/overview.jpg)
+
 ## Run
 
 Docker (Node and Python are built inside the container):
@@ -88,6 +90,7 @@ Sources: [WINDFOR stream documentation](https://bmrs.elexon.co.uk/api-documentat
 | `backend/analysis.py` | Pure as-of selection, alignment, aggregation and metrics |
 | `backend/app.py` | FastAPI validation and JSON/CSV endpoints |
 | `api/index.py` | Vercel ASGI entrypoint, reusing the same backend |
+| `assets/` | Application screenshot for this README |
 | `data/` | Bounded real-data snapshot and provenance manifest |
 | `scripts/fetch_data.py` | Explicit source refresh |
 | `scripts/serve.py` | Same-origin static serving for Docker |
