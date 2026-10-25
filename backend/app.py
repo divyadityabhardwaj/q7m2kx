@@ -7,7 +7,7 @@ from fastapi.responses import Response
 
 from backend.analysis import report, source
 
-app = FastAPI(title="Windwise API", version="1.0.0")
+app = FastAPI(title="Windframe API", version="1.0.0")
 
 
 def checked_report(decision_from, decision_to, cutoff_hour):
@@ -48,7 +48,7 @@ def export(
         out.getvalue(),
         media_type="text/csv",
         headers={
-            "Content-Disposition": 'attachment; filename="windwise-hourly.csv"',
+            "Content-Disposition": 'attachment; filename="windframe-hourly.csv"',
             "X-Snapshot-SHA256": result["provenance"]["sha256"],
         },
     )

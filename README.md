@@ -1,11 +1,11 @@
-# Windwise
+# Windframe
 
 A compact day-ahead wind forecasting workspace for Great Britain. Inspect the forecast available at a historical decision time, compare it with observed generation, and export every selected hourly record.
 
 **Live app:** https://q7m2kx.vercel.app  
 **Repository:** https://github.com/divyadityabhardwaj/q7m2kx
 
-![Windwise overview](assets/overview.jpg)
+![Windframe overview](assets/overview.jpg)
 
 ## Run
 
@@ -116,7 +116,7 @@ Invalid or reversed dates, decisions outside January and cutoffs outside 0–23 
 ```sh
 npm run build
 .venv/bin/python -m pytest -q
-docker build -t windwise .
+docker build -t windframe .
 ```
 
 Tests cover exact-cutoff inclusion, later-issue exclusion, complete half-hour alignment, missing values, signed error, metric formulas, zero denominators, percentile interpolation, snapshot integrity, boundary dates, early-cutoff gaps, API validation and CSV export. CI runs on pushes and pull requests. Browser checks cover navigation, date filters, cutoff changes, actual visibility and responsive layouts.

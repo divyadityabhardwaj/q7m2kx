@@ -122,7 +122,7 @@ function App() {
           <span className="brand-icon">
             <Wind size={25} />
           </span>
-          windwise<span className="brand-dot">.</span>
+          windframe<span className="brand-dot">.</span>
         </a>
         <div className="workspace">WORKSPACE</div>
         <nav aria-label="Main navigation">
@@ -608,7 +608,7 @@ function App() {
               <X size={20} />
             </button>
             <Wind size={30} />
-            <h2>Using Windwise</h2>
+            <h2>Using Windframe</h2>
             <p>
               Choose decision dates and a cutoff. The outlook shows the forecast
               available for next-day delivery.
